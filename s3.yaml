@@ -1,0 +1,14 @@
+---
+#AWSTemplateFormatVersion: 2019-09-07
+Description: create a single S3 bucket
+Parameters: 
+    givebucketname: 
+        Description: give any name to ur bucket
+        Type: String
+    
+Resources:
+  SampleBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Ref: givebucketname
