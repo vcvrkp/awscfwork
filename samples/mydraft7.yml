@@ -1,23 +1,15 @@
-# 1 Zone 1 VPC 2 Subnet, 1 Instance in each subnet, 1 loabbalancer
+# 1 Region 1 VPC 2 Subnet, 1 Instance in each subnet, 1 loabbalancer
 
 Parameters:
 
-  # mySubnet1:
-  #   Description: Subnet 1 to be created the EC21.
-  #   Type: "AWS::EC2::Subnet::Id"
-
-  # mySubnet2:
-  #   Description: Subnet 2 to be created the EC2_2.
-  #   Type: "AWS::EC2::Subnet::Id"
-
   myKey:
     Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: 'AWS::EC2::KeyPair::KeyName'
+    Type: AWS::EC2::KeyPair::KeyName
     ConstraintDescription: must be the name of an existing EC2 KeyPair.
   InstanceType:
     Description: WebServer EC2 instance type
     Type: String
-    Default: t2.small
+    Default: t2.micro
     AllowedValues:
       - t1.micro
       - t2.nano
@@ -350,58 +342,89 @@ Mappings:
       HVMG2: NOT_SUPPORTED
 
 Resources:
-  # myInternetGateway:
-  #   Type: AWS::EC2::InternetGateway
-  #   Properties:
-  #     Tags:
-  #     - Key: purpose
-  #       Value: togetalbinstances
   
-  # myVPC:
-  #   Type: AWS::EC2::VPC
-  #   Properties:
-  #     CidrBlock: 10.0.0.0/16
-  #     EnableDnsSupport: 'false'
-  #     EnableDnsHostnames: 'false'
-  #     InstanceTenancy: dedicated
-  #     Tags:
-  #     - Key: purpose
-  #       Value: togetalbinstances
+  myInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: purpose
+        Value: togetalbinstances
   
-  # AttachGateway:
-  #   Type: AWS::EC2::VPCGatewayAttachment
-  #   Properties:
-  #     VpcId:
-  #       Ref: myVPC
-  #     InternetGatewayId:
-  #       Ref: myInternetGateway
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
+      Tags:
+      - Key: purpose
+        Value: togetalbinstances
+  
+  myAttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: myVPC
+      InternetGatewayId:
+        Ref: myInternetGateway
 
-  # mySubnet1:
-  #   Type: AWS::EC2::Subnet
-  #   Properties:
-  #     VpcId:
-  #       Ref: myVPC
-  #     CidrBlock: 10.20.0.0/24
-  #     AvailabilityZone: "us-east-1a"
-  #     Tags:
-  #     - Key: purpose
-  #       Value: togetalbinstances
+  mySubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: "us-east-1a"
+      Tags:
+      - Key: purpose
+        Value: togetalbinstances
+        
+  mySubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: true
+      VpcId:
+        Ref: myVPC
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: "us-east-1d"
+      Tags:
+      - Key: purpose
+        Value: togetalbinstances
   
-  # mySubnet2:
-  #   Type: AWS::EC2::Subnet
-  #   Properties:
-  #     VpcId:
-  #       Ref: myVPC
-  #     CidrBlock: 10.20.0.0/24
-  #     AvailabilityZone: "us-east-1a"
-  #     Tags:
-  #     - Key: purpose
-  #       Value: togetalbinstances
+  myRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref myVPC
+  
+  myInternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: myAttachGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref myRouteTable
+
+  SubnetARouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref myRouteTable
+        SubnetId: !Ref mySubnet1
+
+  SubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref myRouteTable
+      SubnetId: !Ref mySubnet2
+
   
   # our EC2 security group
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      VpcId:
+        Ref: myVPC
       GroupDescription: Enable SSH access via port 22
       SecurityGroupIngress:
       - CidrIp: 0.0.0.0/0
@@ -413,6 +436,8 @@ Resources:
   ServerSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
+      VpcId:
+        Ref: myVPC
       GroupDescription: allow connections from specified CIDR ranges
       SecurityGroupIngress:
       - IpProtocol: tcp
@@ -431,6 +456,10 @@ Resources:
   MyInstance1:
     Type: AWS::EC2::Instance
     Properties:
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref mySubnet1
+          GroupSet: [!Ref SSHSecurityGroup, !Ref ServerSecurityGroup]
       ImageId: !FindInMap 
         - AWSRegionArch2AMI
         - !Ref 'AWS::Region'
@@ -440,9 +469,6 @@ Resources:
           - Arch
       InstanceType: !Ref InstanceType
       KeyName: !Ref myKey
-      SecurityGroups:
-        - !Ref SSHSecurityGroup
-        - !Ref ServerSecurityGroup
       UserData:
         Fn::Base64: |
           #!/bin/bash
@@ -463,6 +489,10 @@ Resources:
   MyInstance2:
     Type: AWS::EC2::Instance
     Properties:
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref mySubnet2
+          GroupSet: [!Ref SSHSecurityGroup, !Ref ServerSecurityGroup]
       ImageId: !FindInMap 
         - AWSRegionArch2AMI
         - !Ref 'AWS::Region'
@@ -472,9 +502,6 @@ Resources:
           - Arch
       InstanceType: !Ref InstanceType
       KeyName: !Ref myKey
-      SecurityGroups:
-        - !Ref SSHSecurityGroup
-        - !Ref ServerSecurityGroup
       UserData:
         Fn::Base64: |
           #!/bin/bash
@@ -495,16 +522,11 @@ Resources:
   MyLoadBalancer:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
     Properties:
-      AvailabilityZones:
-      - "us-east-1a"
-      - "us-east-1b"
-      - "us-east-1c"
-      - "us-east-1d"
-      - "us-east-1e"
-      - "us-east-1f"
       Instances:
       - Ref: MyInstance1
       - Ref: MyInstance2
+      Subnets: [!Ref mySubnet1, !Ref mySubnet2]
+      SecurityGroups: [!Ref SSHSecurityGroup, !Ref ServerSecurityGroup]
       Listeners:
       - LoadBalancerPort: '80'
         InstancePort: '80'

@@ -353,9 +353,9 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.20.0.0/16
-      EnableDnsSupport: 'false'
-      EnableDnsHostnames: 'false'
-      InstanceTenancy: dedicated
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
       Tags:
       - Key: purpose
         Value: togetalbinstances
@@ -444,23 +444,25 @@ Resources:
         Fn::Base64: |
           #!/bin/bash
           yum update -y
-          amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
-          yum install -y httpd mariadb-server
+          amazon-linux-extras install -y
+          yum install -y httpd docker
           systemctl start httpd
           systemctl enable httpd
+          service httpd start
+          service docker start
           usermod -a -G apache ec2-user
           chown -R ec2-user:apache /var/www
           chmod 2775 /var/www
           find /var/www -type d -exec chmod 2775 {} \;
           find /var/www -type f -exec chmod 0664 {} \;
-          echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+          echo "<html><h1>Lets sing a song.</h1></html>" > /var/www/html/index.html
 
   MyInstance2:
     Type: AWS::EC2::Instance
     Properties:
       NetworkInterfaces:
         - DeviceIndex: '0'
-          SubnetId: !Ref mySubnet1
+          SubnetId: !Ref mySubnet2
           GroupSet: [!Ref SSHSecurityGroup, !Ref ServerSecurityGroup]
       ImageId: !FindInMap 
         - AWSRegionArch2AMI
@@ -475,16 +477,18 @@ Resources:
         Fn::Base64: |
           #!/bin/bash
           yum update -y
-          amazon-linux-extras install -y lamp-mariadb10.2-php7.2 php7.2
-          yum install -y httpd mariadb-server
+          amazon-linux-extras install -y
+          yum install -y httpd docker
           systemctl start httpd
           systemctl enable httpd
+          service httpd start
+          service docker start
           usermod -a -G apache ec2-user
           chown -R ec2-user:apache /var/www
           chmod 2775 /var/www
           find /var/www -type d -exec chmod 2775 {} \;
           find /var/www -type f -exec chmod 0664 {} \;
-          echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php
+          echo "<html><h1>Lets sing a song.</h1></html>" > /var/www/html/index.html
 
   MyLoadBalancer:
     Type: AWS::ElasticLoadBalancing::LoadBalancer
@@ -492,13 +496,14 @@ Resources:
       Instances:
       - Ref: MyInstance1
       - Ref: MyInstance2
+      Subnets: [!Ref mySubnet1, !Ref mySubnet2]
       Listeners:
       - LoadBalancerPort: '80'
         InstancePort: '80'
         Protocol: HTTP
         InstanceProtocol: HTTP
       HealthCheck:
-        Target: HTTP:80
+        Target: HTTP:80/
         HealthyThreshold: '3'
         UnhealthyThreshold: '5'
         Interval: '30'
