@@ -531,6 +531,10 @@ Resources:
     Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
       Subnets: [!ImportValue sample-Subnet1, !ImportValue sample-Subnet2]
+      SecurityGroups: 
+        - !ImportValue sample-SSHSGroup
+        - !ImportValue sample-WSSGroup
+
   ALBListener:
     Type: 'AWS::ElasticLoadBalancingV2::Listener'
     Properties:
