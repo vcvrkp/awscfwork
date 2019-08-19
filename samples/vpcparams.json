@@ -1,0 +1,30 @@
+[
+    {
+      "ParameterKey": "vpcCidr",
+      "ParameterValue": "10.20.0.0/16"
+    },
+    {
+      "ParameterKey": "subnet1Cidr",
+      "ParameterValue": "10.20.10.0/24"
+    },
+    {
+      "ParameterKey": "subnet2Cidr",
+      "ParameterValue": "10.20.20.0/24"
+    },
+    {
+      "ParameterKey": "InstanceType",
+      "ParameterValue": "t2.micro"
+    },
+    {
+      "ParameterKey": "KeyName",
+      "ParameterValue": "vvstkp1"
+    },
+    {
+      "ParameterKey": "subnet1AZ",
+      "ParameterValue": "us-east-1a"
+    },
+    {
+      "ParameterKey": "subnet2AZ",
+      "ParameterValue": "us-east-1c"
+    }
+]
