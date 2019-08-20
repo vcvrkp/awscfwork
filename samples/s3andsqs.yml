@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: 2010-09-09
+Parameters: 
+  myBucketName: 
+      Description: Provide Bucket name to create (Universally Unique Name)
+      Type: String
+  myQueueName: 
+      Description: Provide Queue name to create ( .fifo will be suffixed for FIFO queues)
+      Type: String
+  queueType:
+    Description: Queue type 
+    Default: normal
+    Type: String
+    AllowedValues:
+      - normal
+      - fifo
+    ConstraintDescription: must specify prod or test.
+
+Conditions:
+  CreateFifoQueue: !Equals [ !Ref queueType, fifo ]
+  CreateGenericQueue: !Equals [ !Ref queueType, normal ]
+
+Resources:
+  myS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Ref: myBucketName
+  myQueue: 
+    Type: AWS::SQS::Queue
+    Condition: CreateGenericQueue
+    Properties: 
+      QueueName: !Ref myQueueName
+  myFifoQueue: 
+    Type: AWS::SQS::Queue
+    Condition: CreateFifoQueue
+    Properties: 
+      QueueName: !Ref myQueueName
+Outputs:
+  s3bucket:
+      Description: S3 bucket Created as part of Stack
+      Value: !Ref myS3Bucket
+      Export:
+        Name: !Join [ "-", [ !Ref "AWS::StackName", "S3bucket" ] ]
+  
